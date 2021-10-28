@@ -1,0 +1,2 @@
+https://stackoverflow.com/questions/6447984/auto-resize-the-widths-of-jtables-columns-dynamically
+
