@@ -3,16 +3,16 @@
 ## Screenshots
 
 Proxy Tab
-![](./doc/src/proxyTab.png)
+![](./doc/prints/proxyTab.png)
 
 Principals Tab
-![](./doc/src/principalsTab.png)
+![](./doc/prints/principalsTab.png)
 
 Tests Tab
-![](./doc/src/testsTab.png)
+![](./doc/prints/testsTab.png)
 
 Configuration Tab
-![](./doc/src/configurationTab.png)
+![](./doc/prints/configurationTab.png)
 
 
 ## Disclaimer
