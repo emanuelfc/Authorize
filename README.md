@@ -1,5 +1,19 @@
 # Authorize
 
+## Screenshots
+
+Proxy Tab
+![](./doc/src/proxyTab.png)
+
+Principals Tab
+![](./doc/src/principalsTab.png)
+
+Tests Tab
+![](./doc/src/testsTab.png)
+
+Configuration Tab
+![](./doc/src/configurationTab.png)
+
 
 ## Disclaimer
 
