@@ -26,10 +26,6 @@ Each User contains a set of individual rules that are only applied to it when pe
 
 In addition to per-user settings, you are also able to set global rules - rules which are applied to all requests intercept or created by Authorized, allowing for more coarse-grained control.
 
-**Tests**
-
-You can save proxy messages as tests, for easier retesting - allowing you not only to identify but also modify them freely.
-
 ## Disclaimer
 
 The application is in development but ready for use. If you encounter any issues, such as crashes, please report it!
