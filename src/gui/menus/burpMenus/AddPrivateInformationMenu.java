@@ -8,8 +8,8 @@ import javax.swing.event.MenuEvent;
 import javax.swing.event.MenuListener;
 
 import authorize.AuthorizeUtils;
-import authorize.principal.Principal;
-import authorize.principal.PrivateInfo;
+import authorize.user.PrivateInfo;
+import authorize.user.User;
 import burp.BurpExtender;
 import burp.IContextMenuInvocation;
 
@@ -28,7 +28,7 @@ public class AddPrivateInformationMenu extends JMenu
 			{
 				AddPrivateInformationMenu.this.removeAll();
 				
-				for(Principal p: BurpExtender.instance.getAuthorize().getPrincipals().values())
+				for(User p: BurpExtender.instance.getAuthorize().getUserManager().getOrderedUsers())
 				{
 					JMenuItem item = new JMenuItem(p.getName());
 					

@@ -51,7 +51,7 @@ public class Message
 	
 	@JsonSerialize(using = HttpRequestResponseSerializer.class)
 	public IHttpRequestResponse getMessage()
-	{
+	{	
 		return this.message;
 	}
 	

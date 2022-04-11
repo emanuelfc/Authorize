@@ -23,6 +23,7 @@ public class SimilarityStrategies
 		}
 
 	};
+	
 	public static final SimilarityStrategy CosineDistance = (new CosineDistance())::apply;
 	public static final SimilarityStrategy HammingDistance = (new HammingDistance())::apply;
 	public static final SimilarityStrategy JaccardDistance = (new JaccardDistance())::apply;

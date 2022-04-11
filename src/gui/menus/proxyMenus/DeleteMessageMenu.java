@@ -24,7 +24,7 @@ public class DeleteMessageMenu extends JMenuItem
 			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				if(JOptionPane.showConfirmDialog(null, "Delete Message (Includes all Principal Messages)?") == JOptionPane.YES_OPTION)
+				if(JOptionPane.showConfirmDialog(null, "Delete Message (Includes all User Messages)?") == JOptionPane.YES_OPTION)
 				{
 					BurpExtender.instance.getAuthorize().deleteMessage(proxyMessage.getId());
 					BurpExtender.instance.getView().getProxyTab().getTable().getModel().fireTableDataChanged();

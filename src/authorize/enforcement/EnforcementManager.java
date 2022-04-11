@@ -4,11 +4,11 @@ import java.util.LinkedList;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import authorize.AuthorizeUtils;
-import authorize.matcher.MatchRule;
+import authorize.interception.MatchRule;
 import authorize.types.EnforcementStatus;
 import burp.BurpExtender;
 import burp.IHttpRequestResponse;
+import utils.httpMessage.HttpResponse;
 
 public class EnforcementManager
 {
@@ -21,7 +21,7 @@ public class EnforcementManager
 	{
 		this.rules = new LinkedList<MatchRule>();
 		this.authScore = 1.0;
-		this.unauthScore = -1.0;
+		this.unauthScore = 0.0;
 		this.similarityStrat = SimilarityStrategies.Equals;
 	}
 	
@@ -36,12 +36,12 @@ public class EnforcementManager
 		this.similarityStrat = SimilarityStrategies.strategies.get(similarityStrat);
 	}
 	
-	public boolean testEnforcementRules(IHttpRequestResponse principalMessageInfo)
+	public boolean testEnforcementRules(IHttpRequestResponse userMessage)
 	{
 		synchronized(this.rules)
 		{
 			// Check Enforcement Rules, returns Unauthorized Access if any rule fails (rule returns true)
-			return this.rules.stream().anyMatch((rule) -> (rule.apply(principalMessageInfo)));
+			return this.rules.stream().anyMatch((rule) -> (rule.apply(userMessage)));
 		}
 	}
 	
@@ -50,17 +50,19 @@ public class EnforcementManager
 		return this.rules;
 	}
 	
-	public void addRule(MatchRule newRule)
+	public boolean addRule(MatchRule newRule)
 	{
 		if(!this.rules.contains(newRule))
 		{
-			this.rules.add(newRule);
+			return this.rules.add(newRule);
 		}
+		
+		return false;
 	}
 	
-	public void removeRule(MatchRule rule)
+	public boolean removeRule(MatchRule rule)
 	{
-		this.rules.remove(rule);
+		return this.rules.remove(rule);
 	}
 	
 	public double getAuthorizedScore()
@@ -93,33 +95,47 @@ public class EnforcementManager
 		this.similarityStrat = strat;
 	}
 	
-	public EnforcementStatus testContentSimilarity(IHttpRequestResponse originalMessageInfo, IHttpRequestResponse principalMessageInfo)
+	public EnforcementStatus testContentSimilarity(HttpResponse originalResponse, HttpResponse userResponse)
 	{
-		String originalContent = BurpExtender.helpers.bytesToString(AuthorizeUtils.copyResponseBody(originalMessageInfo.getResponse()));
-		String principalContent = BurpExtender.helpers.bytesToString(AuthorizeUtils.copyResponseBody(principalMessageInfo.getResponse()));
+		double authScore = this.authScore;
 		
 		if(similarityStrat.equals(SimilarityStrategies.Equals))
+		{		
+			authScore = 1.0;
+		}
+		
+		String originalContent = BurpExtender.helpers.bytesToString(originalResponse.toBytes());
+		String userContent = BurpExtender.helpers.bytesToString(userResponse.toBytes());
+		
+		double score = similarityStrat.test(originalContent, userContent);
+		
+		//System.out.println("Content Similarity Algorithm = " + similarityStrat.getClass());
+		//System.out.println("authScore = " + authScore + "; unauthScore = " + this.unauthScore + "; score = " + score);
+		
+		if(score >= authScore)
 		{
-			if(similarityStrat.test(originalContent, principalContent) == 1.0)
-			{
-				return EnforcementStatus.AUTHORIZED;
-			}
+			//System.out.println("ContentSimilarity Result = Authorized");
 			
-			return EnforcementStatus.UNKNOWN;
+			if(score == 1.0)
+			{
+				//System.out.println("Equal Content");
+				return EnforcementStatus.AUTHORIZED_EQUAL_CONTENT;
+			}
+			else
+			{
+				//System.out.println("Similar Content");
+				return EnforcementStatus.AUTHORIZED_SIMILAR_CONTENT;
+			}
+		}
+		else if(score <= this.unauthScore)
+		{
+			//System.out.println("ContentSimilarity Result = Unauthorized");
+			return EnforcementStatus.UNAUTHORIZED_NOT_ACCEPTABLE_SIMILAR_CONTENT;
 		}
 		else
 		{
-			double score = similarityStrat.test(originalContent, principalContent);
-			
-			if(score >= this.authScore)
-			{
-				return EnforcementStatus.AUTHORIZED;
-			}
-			else if(score < this.unauthScore)
-			{
-				return EnforcementStatus.UNAUTHORIZED;
-			}
-			else return EnforcementStatus.UNKNOWN;
+			//System.out.println("ContentSimilarity Result = Unknown");
+			return EnforcementStatus.UNKNOWN;
 		}
 	}
 }

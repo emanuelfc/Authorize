@@ -19,9 +19,6 @@ public class ExtractorTypeFromReplaceModifier
 			case MATCH_REPLACE_HEADER_VALUE:
 				return ExtractorType.REQUEST_HEADER;
 				
-			case MATCH_REPLACE_COOKIE:
-				return ExtractorType.REQUEST_COOKIE;
-				
 			case MATCH_REPLACE_URL_PARAM:
 				return ExtractorType.REQUEST_URL_PARAM;
 				

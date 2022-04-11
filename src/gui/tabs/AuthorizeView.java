@@ -9,13 +9,15 @@ import javax.swing.event.ChangeListener;
 import burp.BurpExtender;
 import burp.ITab;
 import gui.menus.AuthorizeMenu;
+import gui.tabs.configTab.ConfigurationTab;
+import gui.tabs.proxyTab.ProxyTab;
+import gui.tabs.usersTab.UsersTab;
 
 @SuppressWarnings("serial")
 public class AuthorizeView extends JTabbedPane implements ITab, ChangeListener
 {
 	private ProxyTab proxyTab;
-	private PrincipalsTab principalsTab;
-	private TestsTab testsTab;
+	private UsersTab usersTab;
 	private ConfigurationTab configurationTab;
 	
 	public AuthorizeView()
@@ -29,13 +31,9 @@ public class AuthorizeView extends JTabbedPane implements ITab, ChangeListener
 		this.proxyTab = new ProxyTab();
 		this.add(this.proxyTab.getName(), this.proxyTab);
 		
-		// Principals Tab
-		this.principalsTab = new PrincipalsTab();
-		this.add(this.principalsTab.getName(), this.principalsTab);
-		
-		// Tests Tab
-		this.testsTab = new TestsTab();
-		this.add(this.testsTab, this.testsTab.getName());
+		// Users Tab
+		this.usersTab = new UsersTab();
+		this.add(this.usersTab.getName(), this.usersTab);
 		
 		// Configuration Tab
 		this.configurationTab = new ConfigurationTab();
@@ -45,11 +43,6 @@ public class AuthorizeView extends JTabbedPane implements ITab, ChangeListener
 	public ProxyTab getProxyTab()
 	{
 		return this.proxyTab;
-	}
-	
-	public TestsTab getTestsTab()
-	{
-		return this.testsTab;
 	}
 	
 	@Override

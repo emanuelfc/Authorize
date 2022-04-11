@@ -10,7 +10,7 @@ import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 
 import authorize.messages.Message;
-import authorize.principal.Principal;
+import authorize.user.User;
 
 public abstract class MessagePopupMenuListener<T extends Message> implements PopupMenuListener
 {
@@ -24,29 +24,29 @@ public abstract class MessagePopupMenuListener<T extends Message> implements Pop
 	public abstract List<JMenuItem> createMenuItems(MessageContextMenuInvocation<T> invocation);
 	
 	protected abstract T getMessage(int row);
-	protected abstract boolean isPrincipalColumn(int col);
-	protected abstract Principal getPrincipalByColIndex(int col);
-	protected abstract boolean hasPrincipalMessage(Principal principal, int row);
+	protected abstract boolean isUserColumn(int col);
+	protected abstract User getUserByColIndex(int col);
+	protected abstract boolean hasUserMessage(User user, int row);
 	
 	private MessageContextMenuInvocation<T> createInvocationContext()
 	{
 		T selectedMessage = null;
 		List<T> selectedMessages = new LinkedList<T>();
-		Principal selectedPrincipal = null;
+		User selectedUser = null;
 		
-		// Get selected message and/or principal message
+		// Get selected message and/or user message
 		
 		int selectedRow = this.table.getSelectedRow();
 		int selectedCol = this.table.getSelectedColumn();
 
-		// Add selected principal messages
-		if(this.isPrincipalColumn(selectedCol))
+		// Add selected user messages
+		if(this.isUserColumn(selectedCol))
 		{
-			selectedPrincipal = this.getPrincipalByColIndex(selectedCol);
+			selectedUser = this.getUserByColIndex(selectedCol);
 			
-			if(!this.hasPrincipalMessage(selectedPrincipal, selectedRow))
+			if(!this.hasUserMessage(selectedUser, selectedRow))
 			{
-				selectedPrincipal = null;
+				selectedUser = null;
 			}
 		}
 		
@@ -55,7 +55,7 @@ public abstract class MessagePopupMenuListener<T extends Message> implements Pop
 		if(selectedMessage.getMessage() == null)
 		{
 			selectedMessage = null;
-			selectedPrincipal = null;
+			selectedUser = null;
 		}
 		
 		// Add selected messages
@@ -70,7 +70,7 @@ public abstract class MessagePopupMenuListener<T extends Message> implements Pop
 			
 		}
 		
-		return new MessageContextMenuInvocation<T>(selectedMessage, selectedMessages, selectedPrincipal);
+		return new MessageContextMenuInvocation<T>(selectedMessage, selectedMessages, selectedUser);
 	}
 
 	@Override

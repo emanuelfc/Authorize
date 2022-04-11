@@ -2,6 +2,7 @@ package authorize.types;
 
 public enum MatchType
 {
+	SCOPE("Scope"),
 	REQUEST("Request"),
 	RESPONSE("Response"),
 	REQUEST_HEADER("Request Header"),

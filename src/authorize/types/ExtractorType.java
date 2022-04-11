@@ -5,7 +5,6 @@ public enum ExtractorType
 	REQUEST("Request"),
 	REQUEST_BODY("Request Body"),
 	REQUEST_HEADER("Request Header (Value)"),
-	REQUEST_COOKIE("Request Cookie"),
 	REQUEST_URL_PARAM("Request URL Parameter"),
 	REQUEST_URL_PARAM_BODY("Request URL Parameter in Body"),
 	REQUEST_JSON_PARAM("Request JSON Parameter"),
@@ -13,7 +12,6 @@ public enum ExtractorType
 	RESPONSE("Response"),
 	RESPONSE_BODY("Response Body"),
 	RESPONSE_HEADER("Response Header (Value)"),
-	RESPONSE_COOKIE("Response Cookie"),
 	RESPONSE_JSON_PARAM("Response JSON Parameter");
 	
 	private String name;

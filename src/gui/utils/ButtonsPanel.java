@@ -24,6 +24,8 @@ public class ButtonsPanel  extends JPanel
 		gbc.anchor = GridBagConstraints.FIRST_LINE_START;
 		gbc.insets = new Insets(0, 0, 5, 0);
 		gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.weightx = 1;
+		gbc.weighty = 1;
 		gbc.gridx = 0;
 		gbc.gridy = this.getComponentCount();
 		this.add(newButton, gbc);

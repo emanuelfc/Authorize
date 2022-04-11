@@ -25,7 +25,7 @@ public class DeleteMessagesMenu extends JMenuItem
 			@Override
 			public void actionPerformed(ActionEvent e)
 			{
-				if(JOptionPane.showConfirmDialog(null, "Delete Messages (Includes all Principal Messages)?") == JOptionPane.YES_OPTION)
+				if(JOptionPane.showConfirmDialog(null, "Delete Messages (Includes all User Messages)?") == JOptionPane.YES_OPTION)
 				{
 					for(ProxyMessage proxyMessage: proxyMessages)
 					{

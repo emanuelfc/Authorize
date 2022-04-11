@@ -5,7 +5,7 @@ import java.awt.GridBagLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JTextField;
 
-import authorize.principal.PrivateInfo;
+import authorize.user.PrivateInfo;
 import gui.utils.AbstractEntityPanel;
 
 @SuppressWarnings("serial")

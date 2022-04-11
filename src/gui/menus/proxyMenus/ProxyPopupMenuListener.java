@@ -5,9 +5,9 @@ import java.util.List;
 import javax.swing.JMenuItem;
 import javax.swing.event.PopupMenuEvent;
 
-import authorize.messages.PrincipalMessage;
+import authorize.messages.UserMessage;
 import authorize.messages.ProxyMessage;
-import authorize.principal.Principal;
+import authorize.user.User;
 import burp.BurpExtender;
 import gui.menus.commonMenus.MessageContextMenuInvocation;
 import gui.menus.commonMenus.MessagePopupMenuListener;
@@ -15,8 +15,8 @@ import gui.menus.commonMenus.SendToComparerRequestMenu;
 import gui.menus.commonMenus.SendToComparerResponseMenu;
 import gui.menus.commonMenus.SendToIntruderMenu;
 import gui.menus.commonMenus.SendToRepeaterMenu;
-import gui.tableModels.ProxyTableModel;
-import gui.tables.ProxyTable;
+import gui.tabs.proxyTab.ProxyTable;
+import gui.tabs.proxyTab.ProxyTableModel;
 
 public class ProxyPopupMenuListener extends MessagePopupMenuListener<ProxyMessage>
 {
@@ -33,16 +33,16 @@ public class ProxyPopupMenuListener extends MessagePopupMenuListener<ProxyMessag
 		{
 			menuItems.add(new RetestAuthorizationMenu(invocation.getSelectedMessage()));
 			
-			if(invocation.getSelectedPrincipal() != null)
+			if(invocation.getSelectedUser() != null)
 			{
-				menuItems.add(new RetestPrincipalAuthorizationMenu(invocation.getSelectedMessage(), invocation.getSelectedPrincipal()));
+				menuItems.add(new RetestUserAuthorizationMenu(invocation.getSelectedMessage(), invocation.getSelectedUser()));
 			}
 			
 			menuItems.add(new RetestEnforcementMenu(invocation.getSelectedMessage()));
 			
-			if(invocation.getSelectedPrincipal() != null)
+			if(invocation.getSelectedUser() != null)
 			{
-				menuItems.add(new RetestPrincipalEnforcementMenu(invocation.getSelectedMessage(), invocation.getSelectedPrincipal()));
+				menuItems.add(new RetestUserEnforcementMenu(invocation.getSelectedMessage(), invocation.getSelectedUser()));
 			}
 			
 			menuItems.add(new DeleteMessageMenu(invocation.getSelectedMessage()));
@@ -55,9 +55,9 @@ public class ProxyPopupMenuListener extends MessagePopupMenuListener<ProxyMessag
 		
 		if(invocation.getSelectedMessages().size() == 1)
 		{
-			if(invocation.getSelectedPrincipal() != null)
+			if(invocation.getSelectedUser() != null)
 			{
-				menuItems.add(new DeletePrincipalMessageMenu(invocation.getSelectedMessage(), invocation.getSelectedPrincipal()));
+				menuItems.add(new DeleteUserMessageMenu(invocation.getSelectedMessage(), invocation.getSelectedUser()));
 			}
 			
 			if(invocation.getSelectedMessages().size() == 1)
@@ -87,25 +87,25 @@ public class ProxyPopupMenuListener extends MessagePopupMenuListener<ProxyMessag
 	}
 	
 	@Override
-	protected boolean isPrincipalColumn(int col)
+	protected boolean isUserColumn(int col)
 	{
-		return ProxyTableModel.isPrincipalColumn(col);
+		return ProxyTableModel.isUserColumn(col);
 	}
 
 	@Override
-	protected Principal getPrincipalByColIndex(int col)
+	protected User getUserByColIndex(int col)
 	{
-		return ProxyTableModel.getPrincipalByColIndex(col);
+		return ProxyTableModel.getUserByColIndex(col);
 	}
 
 	@Override
-	protected boolean hasPrincipalMessage(Principal principal, int row)
+	protected boolean hasUserMessage(User user, int row)
 	{
 		int messageId = BurpExtender.instance.getView().getProxyTab().getTable().tableRowToMessageId(row);
-		PrincipalMessage principalMessage = principal.getMessage(messageId);
-		if(principalMessage != null)
+		UserMessage userMessage = user.getMessage(messageId);
+		if(userMessage != null)
 		{
-			return principalMessage.getMessage() != null;
+			return userMessage.getMessage() != null;
 		}
 		
 		return false;

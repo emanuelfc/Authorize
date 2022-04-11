@@ -176,7 +176,7 @@ public class AuthorizeUtils
 		return BurpExtender.helpers.buildHttpMessage(headers, body);
 	}
 	
-	public static byte[] updateHeaderFull(byte[] request, String headerInput, boolean isRegex, String newHeader)
+	public static byte[] replaceHeader(byte[] request, String headerInput, boolean isRegex, String newHeader)
 	{
 		IRequestInfo analyzedRequest = BurpExtender.helpers.analyzeRequest(request);
 		
@@ -202,7 +202,7 @@ public class AuthorizeUtils
 		return BurpExtender.helpers.buildHttpMessage(newHeaders, body);
 	}
 	
-	public static byte[] updateHeader(byte[] request, String headerName, boolean isRegex, String newHeaderValue)
+	public static byte[] updateHeaderValue(byte[] request, String headerName, boolean isRegex, String newHeaderValue)
 	{
 		IRequestInfo analyzedRequest = BurpExtender.helpers.analyzeRequest(request);
 		
@@ -217,7 +217,7 @@ public class AuthorizeUtils
 		{
 			if(isHeader.test(header))
 			{
-				header = getHeaderName(header) + ":" + newHeaderValue;
+				header = getHeaderName(header) + ": " + newHeaderValue;
 			}
 			
 			newHeaders.add(header);
@@ -226,44 +226,6 @@ public class AuthorizeUtils
 		byte[] body = copyRequestBody(request);
 		
 		return BurpExtender.helpers.buildHttpMessage(newHeaders, body);
-	}
-	
-	public static byte[] updateHeaderByLocation(int location, byte[] request, String match, String replace, boolean isRegex)
-	{
-		IRequestInfo analyzedRequest = BurpExtender.helpers.analyzeRequest(request);
-		
-		Predicate<String> isHeader;
-		if(isRegex) isHeader = (header) -> {return header.split(":").length == 2 && Pattern.matches(match, header.split(":")[location]);};
-		else isHeader = (header) -> {return header.split(":").length == 2 && header.split(":")[location].equals(match);};
-		
-		List<String> headers = analyzedRequest.getHeaders();
-		List<String> newHeaders = new LinkedList<String>();
-		
-		for(String header: headers)
-		{
-			if(isHeader.test(header))
-			{
-				if(location == 0)
-				{
-					header = replace + ":" + header.split(":")[1];
-				}
-				else if(location == 1)
-				{
-					header = header.split(":")[0] + ":" + replace;
-				}
-			}
-			
-			newHeaders.add(header);
-		}
-		
-		byte[] body = copyRequestBody(request);
-		
-		return BurpExtender.helpers.buildHttpMessage(newHeaders, body);
-	}
-	
-	public static byte[] updateHeaderName(byte[] request, String name, boolean isRegex, String newName)
-	{
-		return updateHeaderByLocation(0, request, name, newName, isRegex);
 	}
 	
 	public static byte[] removeHeader(byte[] request, String header, boolean isRegex)
@@ -436,7 +398,7 @@ public class AuthorizeUtils
 		return BurpExtender.helpers.buildHttpMessage(headers, newBodyBytes);
 	}
 	
-	private static byte[] replaceBytes(byte[] messageBytes, String match, boolean isRegex, String replace)
+	public static byte[] replaceBytes(byte[] messageBytes, String match, boolean isRegex, String replace)
 	{
 		String messageString = BurpExtender.helpers.bytesToString(messageBytes);
 		
@@ -478,13 +440,13 @@ public class AuthorizeUtils
 		return null;
 	}
 	
-	public static String getHeaderByName(List<String> headers, String headerName)
+	public static String getHeader(List<String> headers, String headerName)
 	{
 		Predicate<String> isHeader = (header) -> {return header.split(":").length == 2 && headerName.equals(getHeaderName(header));};
 		return getHeaderByPredicate(headers, isHeader);
 	}
 	
-	public static String getHeaderByNameRegex(List<String> headers, String headerNameRegex)
+	public static String getHeaderByRegex(List<String> headers, String headerNameRegex)
 	{
 		Predicate<String> isHeader = (header) -> {return header.split(":").length == 2 && Pattern.matches(headerNameRegex, getHeaderName(header));};
 		return getHeaderByPredicate(headers, isHeader);
@@ -512,8 +474,8 @@ public class AuthorizeUtils
 	public static String getHeaderValue(List<String> headers, String headerName, boolean isRegex)
 	{
 		String header = null;
-		if(isRegex) header = getHeaderByNameRegex(headers, headerName);
-		else header = getHeaderByName(headers, headerName);
+		if(isRegex) header = getHeaderByRegex(headers, headerName);
+		else header = getHeader(headers, headerName);
 
 		if(header != null)
 		{

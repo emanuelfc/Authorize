@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import authorize.AuthorizeUtils;
 import authorize.messages.Message;
-import authorize.messages.PrincipalMessage;
+import authorize.messages.UserMessage;
 import authorize.messages.ProxyMessage;
 import burp.BurpExtender;
 import burp.IHttpRequestResponse;
@@ -58,11 +58,11 @@ public class MessageSerializer
 		return messages;
 	}
 	
-	public static Map<Integer, PrincipalMessage> readPrincipalMessageHistory(String url) throws JsonParseException, JsonMappingException, IOException, URISyntaxException
+	public static Map<Integer, UserMessage> readUserMessageHistory(String url) throws JsonParseException, JsonMappingException, IOException, URISyntaxException
 	{
 		IHttpRequestResponse[] httpMessages = BurpExtender.callbacks.getSiteMap(url);
 		
-		Map<Integer, PrincipalMessage> messages = new HashMap<Integer, PrincipalMessage>();
+		Map<Integer, UserMessage> messages = new HashMap<Integer, UserMessage>();
 		
 		if(httpMessages != null && httpMessages.length != 0)
 		{
@@ -82,7 +82,7 @@ public class MessageSerializer
 					
 					if(body.length != 0)
 					{
-						PrincipalMessage message = objectMapper.readValue(body, PrincipalMessage.class);
+						UserMessage message = objectMapper.readValue(body, UserMessage.class);
 						messages.putIfAbsent(id, message);
 					}
 				}

@@ -8,7 +8,6 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import authorize.matcher.MatchRule;
 import authorize.types.MatchType;
 import burp.IHttpRequestResponse;
 

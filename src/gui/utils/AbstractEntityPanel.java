@@ -44,6 +44,9 @@ public class AbstractEntityPanel extends JPanel
 		gbc.gridx = 0;
 		this.add(c1, gbc);
 		
+		gbc.weightx = 1;
+		gbc.weighty = 0;
+		
 		gbc.gridx = 1;
 		this.add(c2, gbc);
 	}
@@ -52,7 +55,7 @@ public class AbstractEntityPanel extends JPanel
 	{
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.anchor = GridBagConstraints.WEST;
-		//gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.fill = GridBagConstraints.NONE;
 		gbc.insets = new Insets(0, 0, 5, 10);
 		gbc.gridx = 0;
 		gbc.gridy = 0;

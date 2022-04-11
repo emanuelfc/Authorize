@@ -36,6 +36,7 @@ public abstract class SimpleAbstractTableModel extends AbstractTableModel
 	@Override
 	public abstract Object getValueAt(int row, int col);
 
+	@Override
 	public boolean isCellEditable(int row, int col)
 	{
 		return col == 0;

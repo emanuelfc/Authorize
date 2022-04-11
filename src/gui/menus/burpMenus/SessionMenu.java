@@ -9,11 +9,11 @@ import burp.IContextMenuInvocation;
 @SuppressWarnings("serial")
 public class SessionMenu extends JMenu
 {
-	public static final String PRINCIPAL_SESSION_MENU = "Session";
+	public static final String USER_SESSION_MENU = "Session";
 	
 	public SessionMenu(IContextMenuInvocation invocation)
 	{
-		this.setText(PRINCIPAL_SESSION_MENU);
+		this.setText(USER_SESSION_MENU);
 		this.addMenuListener(new MenuListener()
 		{
 			@Override
@@ -21,9 +21,9 @@ public class SessionMenu extends JMenu
 			{
 				SessionMenu.this.removeAll();
 				
-				SessionMenu.this.add(new SetPrincipalSessionMenu(invocation));
-				SessionMenu.this.add(new SetPrincipalSessionFromSelectionMenu(invocation));
-				SessionMenu.this.add(new UpdatePrincipalSessionMenu(invocation));
+				SessionMenu.this.add(new SetUserSessionMenu(invocation));
+				SessionMenu.this.add(new SetUserSessionFromSelectionMenu(invocation));
+				SessionMenu.this.add(new UpdateUserSessionMenu(invocation));
 			}
 			
 			@Override

@@ -14,11 +14,11 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import authorize.Authorize;
+import authorize.AuthorizeUtils;
 import authorize.messages.Message;
-import authorize.messages.PrincipalMessage;
+import authorize.messages.UserMessage;
 import authorize.messages.ProxyMessage;
-import authorize.messages.TestMessage;
-import authorize.principal.Principal;
+import authorize.user.User;
 import burp.BurpExtender;
 import burp.IHttpRequestResponse;
 import utils.HttpRequestResponse;
@@ -38,12 +38,12 @@ public class AuthorizeSerializer
 	public static final String AUTHORIZE_MESSAGE_URL = AUTHORIZE_MESSAGES_URL + "%d";
 	
 	// Example: https://authorize.local/admin/
-	public static final String AUTHORIZE_PRINCIPAL_URL = AUTHORIZE_URL + "/%s";
+	public static final String AUTHORIZE_USER_URL = AUTHORIZE_URL + "/%s";
 	
-	public static final String AUTHORIZE_PRINCIPAL_MESSAGES_URL = AUTHORIZE_PRINCIPAL_URL + "/messages/";
+	public static final String AUTHORIZE_USER_MESSAGES_URL = AUTHORIZE_USER_URL + "/messages/";
 	
 	// Example: https://authorize.local/admin/messages/1
-	public static final String AUTHORIZE_PRINCIPAL_MESSAGE_URL = AUTHORIZE_PRINCIPAL_MESSAGES_URL + "%d";
+	public static final String AUTHORIZE_USER_MESSAGE_URL = AUTHORIZE_USER_MESSAGES_URL + "%d";
 	
 	public static ObjectMapper createSerializer()
 	{
@@ -67,13 +67,11 @@ public class AuthorizeSerializer
 		try
 		{
 			saveMessageHistory(authorize.getMessages().values(), AUTHORIZE_MESSAGE_URL, objectMapper);
-			for(Principal principal: authorize.getPrincipals().values())
+			for(User user: authorize.getUserManager().getUsers().values())
 			{
-				String principalMessageURL = String.format(AUTHORIZE_PRINCIPAL_MESSAGES_URL, UriUtils.encodePath(principal.getName(), StandardCharsets.UTF_8));
-				savePrincipalMessageHistory(principal.getMessages().entrySet(), principalMessageURL, objectMapper);
+				String userMessageURL = String.format(AUTHORIZE_USER_MESSAGES_URL, UriUtils.encodePath(user.getName(), StandardCharsets.UTF_8));
+				saveUserMessageHistory(user.getMessages().entrySet(), userMessageURL, objectMapper);
 			}
-			
-			saveTests(authorize.getTests(), objectMapper);
 			
 			System.out.println("Successfully saved Authorize messages.");
 		}
@@ -90,7 +88,7 @@ public class AuthorizeSerializer
 		try
 		{
 			writeToBurpSiteMap(AUTHORIZE_PROJECT_SETTINGS_URL, serializeAuthorize(objectMapper));
-			BurpExtender.callbacks.saveExtensionSetting("Authorize", serializeAuthorize(objectMapper));
+			
 			System.out.println("Successfully saved Authorize Settings.");
 		}
 		catch(Exception e)
@@ -141,23 +139,9 @@ public class AuthorizeSerializer
 		}
 	}
 	
-	public static final String AUTHORIZE_TEST_MESSAGES_URL = AUTHORIZE_URL + "/testmessages/";
-	
-	private static void saveTests(Collection<TestMessage> testMessages, ObjectMapper objectMapper) throws JsonProcessingException, MalformedURLException
+	private static void saveUserMessageHistory(Collection<Entry<Integer,UserMessage>> entries, String baseURL, ObjectMapper objectMapper) throws JsonProcessingException, MalformedURLException
 	{
-		int i = 0;
-		
-		for(TestMessage testMessage: testMessages)
-		{
-			String url = AUTHORIZE_TEST_MESSAGES_URL + i;
-			saveMessage(testMessage, url, objectMapper);
-			i++;
-		}
-	}
-	
-	private static void savePrincipalMessageHistory(Collection<Entry<Integer,PrincipalMessage>> entries, String baseURL, ObjectMapper objectMapper) throws JsonProcessingException, MalformedURLException
-	{
-		for(Entry<Integer, PrincipalMessage> entry: entries)
+		for(Entry<Integer, UserMessage> entry: entries)
 		{
 			String url = baseURL + entry.getKey();
 			saveMessage(entry.getValue(), url, objectMapper);
@@ -174,16 +158,16 @@ public class AuthorizeSerializer
 	{
 		removeMessage(AUTHORIZE_MESSAGE_URL, messageId);
 		
-		for(Principal principal: BurpExtender.instance.getAuthorize().getPrincipals().values())
+		for(User user: BurpExtender.instance.getAuthorize().getUserManager().getUsers().values())
 		{
-			removePrincipalMessage(messageId, principal);
+			removeUserMessage(messageId, user);
 		}
 	}
 	
-	public static void removePrincipalMessage(int messageId, Principal principal) throws MalformedURLException
+	public static void removeUserMessage(int messageId, User user) throws MalformedURLException
 	{
-		String principalMessageURL = String.format(AUTHORIZE_PRINCIPAL_MESSAGES_URL, principal.getName()) + "%d";
-		removeMessage(principalMessageURL, messageId);
+		String userMessageURL = String.format(AUTHORIZE_USER_MESSAGES_URL, user.getName()) + "%d";
+		removeMessage(userMessageURL, messageId);
 	}
 	
 	/*
@@ -210,14 +194,12 @@ public class AuthorizeSerializer
 				if(!messages.isEmpty())
 				{
 					authorize.setMessages(messages);
-					for(Principal principal: authorize.getPrincipals().values())
+					for(User user: authorize.getUserManager().getUsers().values())
 					{
-						String principalURL = String.format(AUTHORIZE_PRINCIPAL_MESSAGES_URL, UriUtils.encodePath(principal.getName(), StandardCharsets.UTF_8));
-						Map<Integer, PrincipalMessage> principalMessages = MessageSerializer.readPrincipalMessageHistory(principalURL);
-						principal.setMessages(principalMessages);
+						String userURL = String.format(AUTHORIZE_USER_MESSAGES_URL, UriUtils.encodePath(user.getName(), StandardCharsets.UTF_8));
+						Map<Integer, UserMessage> userMessages = MessageSerializer.readUserMessageHistory(userURL);
+						user.setMessages(userMessages);
 					}
-					
-					authorize.setTests(MessageSerializer.readMessageHistory(TestMessage.class, AUTHORIZE_TEST_MESSAGES_URL));
 					
 					System.out.println("Successfully loaded Authorize messages.");
 				}
@@ -237,10 +219,13 @@ public class AuthorizeSerializer
 	{
 		Authorize authorize = null;
 		
-		String authorizeProjectSettings = BurpExtender.callbacks.loadExtensionSetting("Authorize");
+		IHttpRequestResponse[] httpSettingsMessages = BurpExtender.callbacks.getSiteMap(AUTHORIZE_PROJECT_SETTINGS_URL);
 		
-		if(authorizeProjectSettings != null)
+		if(httpSettingsMessages != null && httpSettingsMessages.length != 0)
 		{
+			IHttpRequestResponse httpSettingsMessage = httpSettingsMessages[0];
+			String authorizeProjectSettings = BurpExtender.helpers.bytesToString(AuthorizeUtils.copyRequestBody(httpSettingsMessage.getRequest()));
+
 			ObjectMapper objectMapper = new ObjectMapper();
 			authorize = objectMapper.readValue(authorizeProjectSettings, Authorize.class);
 			

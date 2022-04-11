@@ -10,7 +10,7 @@ import burp.BurpExtender;
 import burp.IHttpRequestResponse;
 import burp.IMessageEditor;
 import burp.IRequestInfo;
-import gui.controllerPanels.MessageEditorController;
+import gui.utils.MessageEditorController;
 
 @SuppressWarnings("serial")
 public class AuthorizationMessageWindow extends JFrame

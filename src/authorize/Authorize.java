@@ -1,47 +1,49 @@
 package authorize;
 
 import java.util.Arrays;
-import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import authorize.enforcement.EnforcementManager;
 import authorize.interception.InterceptionManager;
-import authorize.matcher.MatchRule;
-import authorize.matcher.MatchRuleFactory;
+import authorize.interception.MatchRule;
+import authorize.interception.InterceptionRuleFactory;
 import authorize.messages.Message;
-import authorize.messages.PrincipalMessage;
+import authorize.messages.UserMessage;
 import authorize.messages.ProxyMessage;
-import authorize.messages.TestMessage;
-import authorize.modifier.Modifier;
 import authorize.modifier.ModifierRule;
-import authorize.modifier.remove.RemoveHeaderModifier;
-import authorize.principal.Principal;
 import authorize.types.EnforcementStatus;
 import authorize.types.MatchType;
-import authorize.types.ModifierType;
 import authorize.types.RelationshipType;
 import authorize.types.ToolType;
+import authorize.user.PrivateInfo;
+import authorize.user.User;
+import authorize.user.UsersManager;
 import burp.BurpExtender;
 import burp.IHttpRequestResponse;
-import burp.IHttpService;
+import burp.IHttpRequestResponseWithMarkers;
+import utils.HttpRequestResponse;
+import utils.httpMessage.HttpMessage;
+import utils.httpMessage.HttpResponse;
 
 public class Authorize
 {
 	@JsonIgnore
 	private ConcurrentSkipListMap<Integer, ProxyMessage> proxyMessages;
-	private ConcurrentMap<String, Principal> principals;
+	
+	@JsonIgnore
+	private UsersManager users;
 	
 	private InterceptionManager interceptionManager;
 	private EnforcementManager enforcementManager;
@@ -50,69 +52,56 @@ public class Authorize
 	private AtomicInteger curIndex;
 	private AtomicBoolean enabled;
 	
-	@JsonIgnore
-	private Principal impersonatingPrincipal;
-	
 	public Authorize()
 	{
 		this.proxyMessages = new ConcurrentSkipListMap<Integer, ProxyMessage>();
+		
 		this.curIndex = new AtomicInteger(0);
-		this.principals = new ConcurrentHashMap<String, Principal>();
+		this.enabled = new AtomicBoolean(false);
+		
+		this.users = new UsersManager();
+		
 		this.interceptionManager = new InterceptionManager();
 		this.enforcementManager = new EnforcementManager();
 		this.globalModifierRules = new LinkedList<ModifierRule>();
-		this.enabled = new AtomicBoolean(false);
-		this.impersonatingPrincipal = null;
 		
 		this.initDefault();
 	}
 	
 	@JsonCreator
-	public Authorize(@JsonProperty("principals") Map<String, Principal> principals,
+	public Authorize(@JsonProperty("users") Map<String, User> users,
 					 @JsonProperty("interceptionManager") InterceptionManager interceptionManager,
 					 @JsonProperty("enforcementManager") EnforcementManager enforcementManager,
 					 @JsonProperty("globalModifiers") List<ModifierRule> globalModifierRules,
 					 @JsonProperty("enabled") boolean enabled)
 	{
 		this.proxyMessages = new ConcurrentSkipListMap<Integer, ProxyMessage>();
+		
 		this.curIndex = new AtomicInteger(0);
-		this.principals = new ConcurrentHashMap<String, Principal>(principals);
+		this.enabled = new AtomicBoolean(enabled);
+		
+		if(users != null) this.users = new UsersManager(users);
+		else this.users = new UsersManager();
+		
 		this.interceptionManager = interceptionManager;
 		this.enforcementManager = enforcementManager;
 		this.globalModifierRules = new LinkedList<ModifierRule>(globalModifierRules);
-		this.enabled = new AtomicBoolean(enabled);
-		this.impersonatingPrincipal = null;
 	}
 	
 	private void initDefault()
 	{
-		this.addPrincipal(new Principal("Anonymous"));
-		
-		Principal noAuth = new Principal("No Auth");
-
-		Modifier removeCookies = new RemoveHeaderModifier("Cookie:.*", true);
-		ModifierRule removeCookiesRule = new ModifierRule(removeCookies, ModifierType.REMOVE_HEADER, true, "Removes Cookies");
-		
-		Modifier removeAuthHeader = new RemoveHeaderModifier("Authorization:.*", true);
-		ModifierRule removeAuthHeaderRule = new ModifierRule(removeAuthHeader, ModifierType.REMOVE_HEADER, true, "Removes Authorization Header");
-		
-		noAuth.getModifierRules().add(removeCookiesRule);
-		noAuth.getModifierRules().add(removeAuthHeaderRule);
-		
-		noAuth.setEnabled(true);
-		this.addPrincipal(noAuth);
-		
-		
 		this.interceptionManager.getToolInterceptionRule().addTool(ToolType.PROXY.getToolFlag());
 		
+		MatchRule inScope = InterceptionRuleFactory.createMatchRule(MatchType.SCOPE, "", RelationshipType.MATCH.getRelationship(), false, "Burp Suite Target Scope", true);
+		this.interceptionManager.getInterceptionRules().add(inScope);
 		
-		MatchRule unauthorized = MatchRuleFactory.createMatchRule(MatchType.STATUS_CODE, "401", RelationshipType.MATCH.getRelationship(), "401 - Unauthorized", true);
+		MatchRule unauthorized = InterceptionRuleFactory.createMatchRule(MatchType.STATUS_CODE, "401", RelationshipType.MATCH.getRelationship(), false, "401 - Unauthorized", true);
 		enforcementManager.addRule(unauthorized);
 		
-		MatchRule forbidden = MatchRuleFactory.createMatchRule(MatchType.STATUS_CODE, "403", RelationshipType.MATCH.getRelationship(), "403 - Forbidden", true);
+		MatchRule forbidden = InterceptionRuleFactory.createMatchRule(MatchType.STATUS_CODE, "403", RelationshipType.MATCH.getRelationship(), false, "403 - Forbidden", true);
 		enforcementManager.addRule(forbidden);
 		
-		MatchRule methodNotAllowed = MatchRuleFactory.createMatchRule(MatchType.STATUS_CODE, "405", RelationshipType.MATCH.getRelationship(), "405 - Method Not Allowed", true);
+		MatchRule methodNotAllowed = InterceptionRuleFactory.createMatchRule(MatchType.STATUS_CODE, "405", RelationshipType.MATCH.getRelationship(), false, "405 - Method Not Allowed", true);
 		enforcementManager.addRule(methodNotAllowed);
 	}
 	
@@ -131,10 +120,15 @@ public class Authorize
 		this.enabled.set(!this.enabled.get());
 	}
 	
-	private boolean hasEnabledPrincipals()
+	@JsonIgnore
+	public UsersManager getUserManager()
 	{
-		Predicate<Principal> enabledPrincipalPredicate = (principal) -> (principal.isEnabled());
-		return this.principals.values().stream().anyMatch(enabledPrincipalPredicate);
+		return this.users;
+	}
+	
+	public ConcurrentMap<String, User> getUsers()
+	{
+		return this.users.getUsers();
 	}
 	
 	public boolean processMessage(int toolFlag, boolean messageIsRequest, IHttpRequestResponse messageInfo)
@@ -145,17 +139,19 @@ public class Authorize
 		
 		if(messageIsRequest)
 		{
-			if(this.impersonatingPrincipal != null)
+			User impersonatingUser = this.users.getImpersonatingUser();
+			
+			if(impersonatingUser != null)
 			{
-				messageInfo.setRequest(this.impersonatingPrincipal.makeRequest(messageInfo.getRequest()));
+				impersonatingUser.buildRequest(messageInfo);
 			}
 		}
 		else
 		{
 			if(this.enabled.get())
 			{
-				// No need to process message if no principals are enabled
-				if(this.hasEnabledPrincipals());
+				// No need to process message if no users are enabled
+				if(this.users.hasEnabledUsers());
 				{
 					this.processAuthorization(messageInfo);
 					
@@ -195,43 +191,43 @@ public class Authorize
 		
 		this.proxyMessages.putIfAbsent(index, new ProxyMessage(index, messageInfo));
 		
-		byte[] baseRequest = this.applyGlobalModifiers(messageInfo.getRequest());
+		IHttpRequestResponse baseRequest = HttpRequestResponse.copyRequest(messageInfo);
+		baseRequest.setRequest(this.applyGlobalModifiers(messageInfo.getRequest()));
 		
 		boolean actingSessionProcessed = false;
 		
-		for(Principal principal: this.principals.values())
+		for(User user: this.users.getOrderedEnabledUsers())
 		{
-			synchronized(principal)
+			synchronized(user)
 			{
-				PrincipalMessage principalMessage = null;
+				UserMessage userMessage = null;
 				
-				if(principal.isEnabled())
+				if(!actingSessionProcessed && user.getSessionManager().isSession(messageInfo))
 				{
-					if(!actingSessionProcessed && principal.getSessionManager().isSession(messageInfo.getRequest()))
-					{
-						principalMessage = new PrincipalMessage(messageInfo, EnforcementStatus.ACTING_USER);
-						actingSessionProcessed = true;
-					}
-					else principalMessage = this.testPrincipalAuthorization(principal, baseRequest, messageInfo);
+					userMessage = new UserMessage(messageInfo, EnforcementStatus.ACTING_USER);
+					actingSessionProcessed = true;
 				}
-				else principalMessage = new PrincipalMessage(null, EnforcementStatus.DISABLED);
+				else
+				{
+					userMessage = this.testUserAuthorization(user, baseRequest, messageInfo);
+				}
 				
-				principal.addMessage(index, principalMessage);
+				user.addMessage(index, userMessage);
 			}
 		}
 	}
 	
 	private void processSessions(IHttpRequestResponse messageInfo)
 	{
-		for(Principal principal: this.principals.values())
+		for(User user: this.users.getOrderedEnabledUsers())
 		{
-			synchronized(principal)
+			synchronized(user)
 			{
-				if(principal.getSessionManager().isSession(messageInfo.getRequest()))
+				if(user.getSessionManager().isSession(messageInfo))
 				{
 					if(messageInfo.getResponse() != null)
 					{
-						principal.getSessionManager().updateSession(messageInfo);
+						user.getSessionManager().updateSession(messageInfo);
 					}
 				}
 			}
@@ -248,110 +244,185 @@ public class Authorize
 			
 			this.proxyMessages.putIfAbsent(index, new ProxyMessage(index, messageInfo));
 			
-			byte[] baseRequest = this.applyGlobalModifiers(messageInfo.getRequest());
+			IHttpRequestResponse baseRequest = HttpRequestResponse.copyRequest(messageInfo);
 			
-			for(Principal principal: this.principals.values())
+			baseRequest.setRequest(this.applyGlobalModifiers(messageInfo.getRequest()));
+			
+			for(User user: this.users.getOrderedEnabledUsers())
 			{
-				synchronized(principal)
+				synchronized(user)
 				{
-					PrincipalMessage principalMessage = principal.getMessage(messageId);
-					if(principalMessage != null && principalMessage.getMessage() != null && !principalMessage.getStatus().equals(EnforcementStatus.ACTING_USER))
+					UserMessage userMessage = user.getMessage(messageId);
+					if(userMessage != null && userMessage.getMessage() != null && !userMessage.getStatus().equals(EnforcementStatus.ACTING_USER))
 					{
-						principal.addMessage(index, this.testPrincipalAuthorization(principal, baseRequest, messageInfo));
+						UserMessage newUserMessage = this.testUserAuthorization(user, baseRequest, messageInfo);
+						user.addMessage(index, newUserMessage);
 					}
 				}
 			}
 		}
 	}
 	
-	public void retestAuthorizationForPrincipal(int messageId, Principal principal)
+	public void retestAuthorizationForUser(int messageId, User user)
 	{
 		IHttpRequestResponse messageInfo = this.proxyMessages.get(messageId).getMessage();
 		if(messageInfo != null)
 		{
-			synchronized(principal)
+			synchronized(user)
 			{
-				PrincipalMessage principalMessage = principal.getMessage(messageId);
-				if(principalMessage != null && principalMessage.getMessage() != null && !principalMessage.getStatus().equals(EnforcementStatus.ACTING_USER))
+				UserMessage userMessage = user.getMessage(messageId);
+				if(userMessage != null && userMessage.getMessage() != null && !userMessage.getStatus().equals(EnforcementStatus.ACTING_USER))
 				{
-					byte[] baseRequest = this.applyGlobalModifiers(messageInfo.getRequest());
-					
-					principal.addMessage(this.curIndex.getAndIncrement(), this.testPrincipalAuthorization(principal, baseRequest, messageInfo));
+					HttpRequestResponse baseHttpMessage = HttpRequestResponse.copyRequest(messageInfo);
+					baseHttpMessage.setRequest(this.applyGlobalModifiers(baseHttpMessage.getRequest()));
+					user.addMessage(this.curIndex.getAndIncrement(), this.testUserAuthorization(user, baseHttpMessage, messageInfo));
 				}
 			}
 		}
 	}
 	
-	private PrincipalMessage testPrincipalAuthorization(Principal principal, byte[] baseRequest, IHttpRequestResponse originalMessageInfo)
+	private UserMessage testUserAuthorization(User user, IHttpRequestResponse baseMessageInfo, IHttpRequestResponse originalMessageInfo)
 	{
-		IHttpRequestResponse messageInfo = this.sendAsPrincipal(principal, baseRequest, originalMessageInfo.getHttpService());
+		IHttpRequestResponse userMessageInfo = this.sendAsUser(user, baseMessageInfo);
 		
-		EnforcementStatus enforcementStatus = this.testEnforcementStatus(originalMessageInfo, messageInfo, principal);
+		EnforcementStatus enforcementStatus = this.testEnforcementStatus(originalMessageInfo, userMessageInfo, user);
 		
-		PrincipalMessage message = new PrincipalMessage(messageInfo, enforcementStatus);
+		UserMessage message = new UserMessage(userMessageInfo, enforcementStatus);
 		
 		return message;
 	}
 	
-	public IHttpRequestResponse sendAsPrincipal(Principal principal, byte[] baseRequest, IHttpService httpService)
+	public IHttpRequestResponse sendAsUser(User user, IHttpRequestResponse messageInfo)
 	{
-		synchronized(principal)
+		synchronized(user)
 		{
-			byte[] request = principal.makeRequest(baseRequest);
+			IHttpRequestResponse userRequest = HttpRequestResponse.copyRequest(messageInfo);
+			user.buildRequest(userRequest);
 			
-			IHttpRequestResponse messageInfo = BurpExtender.callbacks.makeHttpRequest(httpService, request);
+			IHttpRequestResponse userHttpMessage = BurpExtender.callbacks.makeHttpRequest(userRequest.getHttpService(), userRequest.getRequest());
 			
-			// Update principal session
-			principal.getSessionManager().updateSession(messageInfo);
+			// Update user session
+			user.getSessionManager().updateSession(userHttpMessage);
 			
-			return messageInfo;
+			return userHttpMessage;
 		}
 	}
 	
-	private boolean hasPrivateInfo(IHttpRequestResponse messageInfo, Principal principal)
+	private boolean hasPrivateInfo(IHttpRequestResponse messageInfo, User user)
 	{
-		Predicate<Principal> hasPrincipalPrivateInfo = (otherPrincipal) -> (otherPrincipal.equals(principal) ? false : otherPrincipal.hasPrivateInfo(messageInfo));
+		Predicate<User> hasUserPrivateInfo = (otherUser) -> (otherUser.equals(user) ? false : otherUser.hasPrivateInfo(messageInfo));
 		
-		return this.principals.values().stream().anyMatch(hasPrincipalPrivateInfo);
+		return this.users.getOrderedUsers().stream().anyMatch(hasUserPrivateInfo);
 	}
 	
-	private EnforcementStatus testEnforcementStatus(IHttpRequestResponse originalMessageInfo, IHttpRequestResponse principalMessageInfo, Principal principal)
+	private List<int[]> getMarkersFromRegex(String content, String regex)
 	{
-		if(this.enforcementManager.testEnforcementRules(principalMessageInfo)) return EnforcementStatus.UNAUTHORIZED;
+		Matcher matcher = Pattern.compile(regex).matcher(content);
 		
-		// Check if response contains Private Information of any Principal
-		if(this.hasPrivateInfo(principalMessageInfo, principal))
+		List<int[]> markers = new LinkedList<int[]>();
+		
+		while(matcher.find())
 		{
-			return EnforcementStatus.AUTHORIZED;
+			markers.add(new int[] {matcher.start(), matcher.end()});
 		}
 		
-		return this.enforcementManager.testContentSimilarity(originalMessageInfo, principalMessageInfo);
+		return markers;
 	}
 	
-	private void testEnforcement(Message message, Principal principal, PrincipalMessage principalMessage)
+	private List<int[]> getMarkersFromLiteral(String content, String literal)
 	{
-		EnforcementStatus newStatus = this.testEnforcementStatus(message.getMessage(), principalMessage.getMessage(), principal);
-		principalMessage.setStatus(newStatus);
-	}
-	
-	private void retestEnforcement(ProxyMessage message, Principal principal)
-	{
-		synchronized(principal)
+		List<int[]> markers = new LinkedList<int[]>();
+		
+		// https://stackoverflow.com/a/44838176
+		int count = content.split(literal, -1).length - 1;
+		
+		for(int i = 0; i <= count; i++)
 		{
-			PrincipalMessage principalMessage = principal.getMessage(message.getId());
-			if(principalMessage != null && principalMessage.getMessage() != null)
+			int start = content.indexOf(literal, i);
+			int end = start + literal.length();
+			
+			markers.add(new int[] {start, end});
+		}
+		
+		return markers;
+	}
+	
+	private IHttpRequestResponseWithMarkers getResponseWithPrivateInfoMarkers(IHttpRequestResponse messageInfo, User user)
+	{
+		List<int[]> responseMarkers = new LinkedList<int[]>();
+		
+		String responseString = BurpExtender.helpers.bytesToString(messageInfo.getResponse());
+		
+		this.users.getOrderedUsers().stream().forEach((otherUser) -> {
+			
+			if(!otherUser.equals(user))
 			{
-				this.testEnforcement(message, principal, principalMessage);
+				for(PrivateInfo privateInfo: otherUser.getPrivateInfo())
+				{
+					List<int[]> markers = null;
+					
+					if(privateInfo.isRegex())
+					{					
+						markers = this.getMarkersFromRegex(responseString, privateInfo.getInfo());
+					}
+					else
+					{
+						markers = this.getMarkersFromLiteral(responseString, privateInfo.getInfo());
+					}
+					
+					responseMarkers.addAll(markers);
+				}
+			}
+			
+		});
+		
+		return BurpExtender.callbacks.applyMarkers(messageInfo, null, responseMarkers);
+	}
+	
+	private EnforcementStatus testEnforcementStatus(IHttpRequestResponse originalMessageInfo, IHttpRequestResponse userMessageInfo, User user)
+	{
+		if(this.enforcementManager.testEnforcementRules(userMessageInfo))
+		{
+			return EnforcementStatus.UNAUTHORIZED_BY_ENFORCEMENT_RULE;
+		}
+		
+		// Check if response contains Private Information of any User
+		if(this.hasPrivateInfo(userMessageInfo, user))
+		{
+			//System.out.println("Contains Private Info of Other Users");
+			return EnforcementStatus.AUTHORIZED_CONTAINS_PRIVATE_INFO;
+		}
+		
+		HttpMessage userMessage = new HttpMessage(userMessageInfo);
+		HttpResponse originalResponse = new HttpResponse(originalMessageInfo);
+		
+		return this.enforcementManager.testContentSimilarity(originalResponse, userMessage.getResponse());
+	}
+	
+	private void testEnforcement(Message message, User user, UserMessage userMessage)
+	{
+		EnforcementStatus newStatus = this.testEnforcementStatus(message.getMessage(), userMessage.getMessage(), user);
+		userMessage.setStatus(newStatus);
+	}
+	
+	private void retestEnforcement(ProxyMessage message, User user)
+	{
+		synchronized(user)
+		{
+			UserMessage userMessage = user.getMessage(message.getId());
+			if(userMessage != null && userMessage.getMessage() != null)
+			{
+				this.testEnforcement(message, user, userMessage);
 			}
 		}
 	}
 	
-	public void retestEnforcement(int messageId, Principal principal)
+	public void retestEnforcement(int messageId, User user)
 	{
 		ProxyMessage originalMessage = this.proxyMessages.get(messageId);
 		if(originalMessage != null)
 		{
-			this.retestEnforcement(originalMessage, principal);
+			this.retestEnforcement(originalMessage, user);
 		}
 	}
 	
@@ -360,9 +431,9 @@ public class Authorize
 		ProxyMessage originalMessage = this.proxyMessages.get(messageId);
 		if(originalMessage != null)
 		{
-			for(Principal principal: this.principals.values())
+			for(User user: this.users.getOrderedUsers())
 			{
-				this.retestEnforcement(originalMessage, principal);
+				this.retestEnforcement(originalMessage, user);
 			}
 		}
 	}
@@ -376,53 +447,17 @@ public class Authorize
 	public void setMessages(Map<Integer, ProxyMessage> proxyMessages)
 	{
 		this.proxyMessages = new ConcurrentSkipListMap<Integer, ProxyMessage>(proxyMessages);
-		this.curIndex = new AtomicInteger(this.proxyMessages.lastKey());
+		this.curIndex = new AtomicInteger(this.proxyMessages.lastKey() + 1);
 	}
 	
 	public void deleteMessage(int id)
 	{
 		this.proxyMessages.remove(id);
 		
-		for(Principal principal: this.principals.values())
+		for(User user: this.users.getUsers().values())
 		{
-			principal.deleteMessage(id);
+			user.deleteMessage(id);
 		}
-	}
-	
-	public ConcurrentMap<String, Principal> getPrincipals()
-	{
-		return this.principals;
-	}
-	
-	public void addPrincipal(String name)
-	{
-		this.addPrincipal(new Principal(name));
-	}
-	
-	public void addPrincipal(Principal principal)
-	{
-		this.principals.putIfAbsent(principal.getName(), principal);
-	}
-	
-	public void removePrincipal(String name)
-	{
-		Principal removedPrincipal = this.principals.remove(name);
-		
-		if(removedPrincipal != null)
-		{
-			if(this.impersonatingPrincipal.equals(removedPrincipal)) this.impersonatingPrincipal = null;
-		}
-	}
-	
-	@JsonIgnore
-	public Principal getImpersonatingPrincipal()
-	{
-		return this.impersonatingPrincipal;
-	}
-	
-	public void setImpersonatingPrincipal(Principal newImpersonatingPrincipal)
-	{
-		this.impersonatingPrincipal = newImpersonatingPrincipal;
 	}
 	
 	public List<ModifierRule> getGlobalModifiers()
@@ -438,129 +473,5 @@ public class Authorize
 	public EnforcementManager getEnforcementManager()
 	{
 		return this.enforcementManager;
-	}
-
-	
-	
-	
-	
-	
-	
-	
-	private List<TestMessage> testMessages = new LinkedList<TestMessage>();
-	
-	@JsonIgnore
-	public List<TestMessage> getTests()
-	{
-		return this.testMessages;
-	}
-	
-	public void setTests(List<TestMessage> testMessages)
-	{
-		this.testMessages = new LinkedList<TestMessage>(testMessages);
-	}
-	
-	public void deleteTestMessage(int testIndex)
-	{
-		this.testMessages.remove(testIndex);
-	}
-	
-	public void executeTest(int testIndex)
-	{
-		TestMessage testMessage = this.testMessages.get(testIndex);
-		
-		IHttpRequestResponse testMessageInfo = testMessage.getMessage();
-		
-		if(testMessageInfo != null)
-		{
-			for(Principal principal: this.principals.values())
-			{
-				synchronized(principal)
-				{
-					testMessage.insertPrincipalTest(principal.getName(), testPrincipalAuthorization(principal, testMessageInfo.getRequest(), testMessageInfo));
-				}
-			}
-		}
-		
-		testMessage.setTimestamp(new Date());
-	}
-	
-	public void executeTest(TestMessage testMessage)
-	{
-		IHttpRequestResponse testMessageInfo = testMessage.getMessage();
-		
-		if(testMessageInfo != null)
-		{
-			for(Principal principal: this.principals.values())
-			{
-				synchronized(principal)
-				{
-					testMessage.insertPrincipalTest(principal.getName(), testPrincipalAuthorization(principal, testMessageInfo.getRequest(), testMessageInfo));
-				}
-			}
-		}
-		
-		testMessage.setTimestamp(new Date());
-	}
-	
-	public void executeTestForPrincipal(int testIndex, Principal principal)
-	{
-		TestMessage testMessage = this.testMessages.get(testIndex);
-		
-		IHttpRequestResponse testMessageInfo = testMessage.getMessage();
-		
-		if(testMessageInfo != null)
-		{			
-			synchronized(principal)
-			{
-				testMessage.insertPrincipalTest(principal.getName(), testPrincipalAuthorization(principal, testMessageInfo.getRequest(), testMessageInfo));
-			}
-		}
-	}
-	
-	public void executeTestForPrincipal(TestMessage testMessage, Principal principal)
-	{
-		IHttpRequestResponse testMessageInfo = testMessage.getMessage();
-		
-		if(testMessageInfo != null)
-		{			
-			synchronized(principal)
-			{
-				testMessage.insertPrincipalTest(principal.getName(), testPrincipalAuthorization(principal, testMessageInfo.getRequest(), testMessageInfo));
-			}
-		}
-	}
-	
-	public void executeEnforcementTest(int testIndex)
-	{
-		TestMessage testMessage = this.testMessages.get(testIndex);
-		
-		for(Entry<String, PrincipalMessage> entry: testMessage.getPrincipalMessages().entrySet())
-		{
-			this.testEnforcement(testMessage, this.principals.get(entry.getKey()), entry.getValue());
-			testMessage.setTimestamp(new Date());
-		}
-	}
-	
-	public void executeEnforcementTest(TestMessage testMessage)
-	{
-		for(Entry<String, PrincipalMessage> entry: testMessage.getPrincipalMessages().entrySet())
-		{
-			this.testEnforcement(testMessage, this.principals.get(entry.getKey()), entry.getValue());
-			testMessage.setTimestamp(new Date());
-		}
-	}
-	
-	public void executeEnforcementTestForPrincipal(int testIndex, Principal principal)
-	{
-		TestMessage testMessage = this.testMessages.get(testIndex);
-		PrincipalMessage principalMessage = testMessage.getPrincipalMessage(principal.getName());
-		this.testEnforcement(testMessage, principal, principalMessage);
-	}
-	
-	public void executeEnforcementTestForPrincipal(TestMessage testMessage, Principal principal)
-	{
-		PrincipalMessage principalMessage = testMessage.getPrincipalMessage(principal.getName());
-		this.testEnforcement(testMessage, principal, principalMessage);
 	}
 }

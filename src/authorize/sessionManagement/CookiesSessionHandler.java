@@ -42,9 +42,9 @@ public class CookiesSessionHandler implements SessionHandler
 	}
 	
 	@Override
-	public boolean isSession(byte[] request)
+	public boolean isSession(IHttpRequestResponse messageInfo)
 	{
-		IRequestInfo requestInfo = BurpExtender.helpers.analyzeRequest(request);
+		IRequestInfo requestInfo = BurpExtender.helpers.analyzeRequest(messageInfo.getRequest());
 		List<IParameter> requestCookiesParams = AuthorizeUtils.getRequestCookies(requestInfo);
 		List<Parameter> requestCookies = AuthorizeUtils.convertBurpParametersToParameters(requestCookiesParams);
 		
@@ -74,10 +74,71 @@ public class CookiesSessionHandler implements SessionHandler
 		return allCookies;
 	}
 	
-	@Override
-	public byte[] insertSession(byte[] request)
+	/*
+	 * Intersection by name
+	 * cookies1 will be the set which we will use as the values for the set intersection values
+	 */
+	private Set<IParameter> getCookiesIntersection(Set<? extends IParameter> cookies1, Set<? extends IParameter> cookies2)
 	{
-		byte[] newRequest = Arrays.copyOf(request, request.length);
+		// Supplied cookie from cookies1 list should not exist in the cookies2 list
+		Predicate<IParameter> sameCookiePredicate = (cookie1) -> (cookies1.stream().anyMatch((cookie2) -> (equalNameParameter(cookie1, cookie2))));
+		
+		// Get only the cookies on cookies1 list that do not belong in cookies2 list
+		Set<IParameter> cookiesIntersection = cookies1.stream().filter(sameCookiePredicate).collect(Collectors.toSet());
+		
+		return cookiesIntersection;
+	}
+	
+	private byte[] removeCookies(byte[] request, Set<IParameter> cookies)
+	{
+		for(IParameter cookie: cookies)
+		{
+			request = BurpExtender.helpers.removeParameter(request, cookie);
+		}
+		
+		return request;
+	}
+	
+	private byte[] addCookies(byte[] request, Set<IParameter> cookies)
+	{
+		for(IParameter cookie: cookies)
+		{
+			request = BurpExtender.helpers.addParameter(request, cookie);
+		}
+		
+		return request;
+	}
+	
+	private byte[] updateCookies(byte[] request, Set<Parameter> requestCookies, Set<IParameter> cookies)
+	{
+		Set<IParameter> requestCookiesIntersection = this.getCookiesIntersection(requestCookies, ImmutableSet.copyOf(this.cookies));
+		request = this.removeCookies(request, requestCookiesIntersection);
+		
+		Set<IParameter> cookiesIntersection = this.getCookiesIntersection(ImmutableSet.copyOf(this.cookies), requestCookies);
+		request = this.addCookies(request, cookiesIntersection);
+		
+		IRequestInfo analyzedRequest = BurpExtender.helpers.analyzeRequest(request);
+		List<String> headers = analyzedRequest.getHeaders();
+		byte[] body = AuthorizeUtils.copyRequestBody(request);
+		
+		return BurpExtender.helpers.buildHttpMessage(headers, body);
+	}
+	
+	@Override
+	public void insertSession(IHttpRequestResponse message)
+	{
+		byte[] newRequest = Arrays.copyOf(message.getRequest(), message.getRequest().length);
+		
+		Set<Parameter> requestCookies = ImmutableSet.copyOf(AuthorizeUtils.convertBurpParametersToParameters(AuthorizeUtils.getRequestCookies(newRequest)));
+		Set<IParameter> sessionCookies = ImmutableSet.copyOf(this.cookies);
+		
+		message.setRequest(this.updateCookies(newRequest, requestCookies, sessionCookies));
+	}
+	
+	@Override
+	public void forceInsertSession(IHttpRequestResponse message)
+	{
+		byte[] newRequest = Arrays.copyOf(message.getRequest(), message.getRequest().length);
 		
 		Set<Parameter> requestCookies = ImmutableSet.copyOf(AuthorizeUtils.convertBurpParametersToParameters(AuthorizeUtils.getRequestCookies(newRequest)));
 		for(Parameter cookieParam: requestCookies)
@@ -85,9 +146,9 @@ public class CookiesSessionHandler implements SessionHandler
 			newRequest = BurpExtender.helpers.removeParameter(newRequest, cookieParam);
 		}
 		
-		Set<IParameter> cookiesIntersection = mergeCookies(requestCookies, ImmutableSet.copyOf(this.cookies));
+		Set<IParameter> mergedCookies = mergeCookies(requestCookies, ImmutableSet.copyOf(this.cookies));
 		
-		for(IParameter cookieParam: cookiesIntersection)
+		for(IParameter cookieParam: mergedCookies)
 		{
 			newRequest = BurpExtender.helpers.addParameter(newRequest, cookieParam);
 		}
@@ -96,7 +157,7 @@ public class CookiesSessionHandler implements SessionHandler
 		List<String> headers = analyzedRequest.getHeaders();
 		byte[] body = AuthorizeUtils.copyRequestBody(newRequest);
 		
-		return BurpExtender.helpers.buildHttpMessage(headers, body);
+		message.setRequest(BurpExtender.helpers.buildHttpMessage(headers, body));
 	}
 	
 	@Override
@@ -205,6 +266,12 @@ public class CookiesSessionHandler implements SessionHandler
 	public String getDescription()
 	{
 		return "Cookies";
+	}
+
+	@Override
+	public void setDescription(String newDescription)
+	{
+		return;
 	}
 
 }

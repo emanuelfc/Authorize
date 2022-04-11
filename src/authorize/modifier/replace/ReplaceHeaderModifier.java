@@ -16,6 +16,6 @@ public class ReplaceHeaderModifier extends AbstractReplaceModifier
 	@Override
 	public byte[] modify(byte[] request)
 	{
-		return AuthorizeUtils.updateHeader(request, this.match, this.isRegex, this.replace);
+		return AuthorizeUtils.updateHeaderValue(request, this.match, this.isRegex, this.replace);
 	}
 }

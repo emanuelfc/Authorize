@@ -2,19 +2,19 @@ package gui.menus.commonMenus;
 
 import java.util.List;
 import authorize.messages.Message;
-import authorize.principal.Principal;
+import authorize.user.User;
 
 public class MessageContextMenuInvocation<T extends Message>
 {
 	private T selectedMessage;
 	private List<T> selectedMessages;
-	private Principal selectedPrincipal;
+	private User selectedUser;
 	
-	public MessageContextMenuInvocation(T selectedMessage, List<T> selectedMessages, Principal selectedPrincipal)
+	public MessageContextMenuInvocation(T selectedMessage, List<T> selectedMessages, User selectedUser)
 	{
 		this.selectedMessage = selectedMessage;
 		this.selectedMessages = selectedMessages;
-		this.selectedPrincipal = selectedPrincipal;
+		this.selectedUser = selectedUser;
 	}
 	
 	public T getSelectedMessage()
@@ -27,8 +27,8 @@ public class MessageContextMenuInvocation<T extends Message>
 		return this.selectedMessages;
 	}
 	
-	public Principal getSelectedPrincipal()
+	public User getSelectedUser()
 	{
-		return this.selectedPrincipal;
+		return this.selectedUser;
 	}
 }

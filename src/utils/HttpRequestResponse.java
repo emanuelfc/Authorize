@@ -9,6 +9,8 @@ import burp.BurpExtender;
 import burp.IHttpRequestResponse;
 import burp.IHttpService;
 import serialization.HttpRequestResponseSerializer;
+import utils.httpMessage.HttpMessage;
+import utils.httpMessage.HttpRequest;
 
 @JsonSerialize(using = HttpRequestResponseSerializer.class)
 public class HttpRequestResponse implements IHttpRequestResponse
@@ -31,6 +33,18 @@ public class HttpRequestResponse implements IHttpRequestResponse
 	public HttpRequestResponse(byte[] request, byte[] response, IHttpService httpService)
 	{
 		this(request, response, httpService, new String(), new String());
+	}
+	
+	public static HttpRequestResponse copy(IHttpRequestResponse messageInfo)
+	{
+		HttpMessage httpMessage = new HttpMessage(messageInfo);
+		return new HttpRequestResponse(httpMessage.getRequest().copyRequest(), httpMessage.getResponse().copyResponse(), messageInfo.getHttpService(), messageInfo.getComment(), messageInfo.getHighlight());
+	}
+	
+	public static HttpRequestResponse copyRequest(IHttpRequestResponse messageInfo)
+	{
+		HttpRequest httpRequest = new HttpRequest(messageInfo);
+		return new HttpRequestResponse(httpRequest.copyRequest(), null, messageInfo.getHttpService(), messageInfo.getComment(), messageInfo.getHighlight());
 	}
 
 	@Override

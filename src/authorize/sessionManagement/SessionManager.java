@@ -2,6 +2,8 @@ package authorize.sessionManagement;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -13,7 +15,7 @@ import burp.IHttpRequestResponse;
 public class SessionManager
 {
 	@JsonProperty
-	@JsonDeserialize(contentAs=MatchReplaceSessionHandler.class)
+	@JsonDeserialize(contentAs=HeaderSessionHandler.class)
 	private List<SessionHandler> sessionHandlers;
 	@JsonProperty
 	private CookiesSessionHandler cookieSessionHandler;
@@ -48,42 +50,63 @@ public class SessionManager
 		return this.sessionHandlers.remove(sessionHandler);
 	}
 	
-	public synchronized byte[] insertSession(byte[] request)
+	public synchronized void insertSession(IHttpRequestResponse message)
 	{
 		for(SessionHandler sessionHandler: this.getSessionHandlers())
 		{
 			if(sessionHandler.isEnabled())
 			{
-				request = sessionHandler.insertSession(request);
+				sessionHandler.insertSession(message);
 			}
 		}
-		
-		return request;
 	}
 	
 	@JsonIgnore
 	public synchronized Stream<SessionHandler> getEnabledSessionHandlers()
 	{
-		return this.getSessionHandlers().stream().filter((sessionHandler) -> (sessionHandler.isEnabled()));
+		Stream<SessionHandler> sessionHandlerStream = this.getSessionHandlers().stream().filter((sessionHandler) -> (sessionHandler.isEnabled()));
+		
+		List<SessionHandler> sessionHandlerList = sessionHandlerStream.collect(Collectors.toList());
+		
+		if(!sessionHandlerList.isEmpty()) return sessionHandlerList.stream();
+		
+		return null;
 	}
 	
-	public synchronized boolean isSession(byte[] request)
+	public synchronized boolean isSession(IHttpRequestResponse messageInfo)
 	{
-		return this.getEnabledSessionHandlers().anyMatch((sessionHandler) -> (sessionHandler.isSession(request)));
+		Stream<SessionHandler> enabledSessionHandlers = this.getEnabledSessionHandlers();
+		
+		if(enabledSessionHandlers != null)
+		{			
+			return enabledSessionHandlers.anyMatch((sessionHandler) -> (sessionHandler.isSession(messageInfo)));
+		}
+				
+		return false;
+	}
+	
+	private void forEachEnabledSessionHandler(Consumer<? super SessionHandler> action)
+	{
+		Stream<SessionHandler> enabledSessionHandlers = this.getEnabledSessionHandlers();
+		
+		if(enabledSessionHandlers != null)
+		{
+			enabledSessionHandlers.forEach(action);
+		}
 	}
 	
 	public void setSession(IHttpRequestResponse messageInfo, byte invocationContext)
 	{
-		this.getEnabledSessionHandlers().forEach((sessionHandler) ->{sessionHandler.setSession(messageInfo, invocationContext);});
+		this.forEachEnabledSessionHandler((sessionHandler) -> {sessionHandler.setSession(messageInfo, invocationContext);});
 	}
 	
 	public synchronized void updateSession(IHttpRequestResponse messageInfo, byte invocationContext)
 	{
-		this.getEnabledSessionHandlers().forEach((sessionHandler) ->{sessionHandler.updateSession(messageInfo, invocationContext);});
+		this.forEachEnabledSessionHandler((sessionHandler) -> {sessionHandler.updateSession(messageInfo, invocationContext);});
 	}
 	
 	public synchronized void updateSession(IHttpRequestResponse messageInfo)
 	{
-		this.getEnabledSessionHandlers().forEach((sessionHandler) ->{sessionHandler.updateSession(messageInfo);});
+		this.forEachEnabledSessionHandler((sessionHandler) -> {sessionHandler.updateSession(messageInfo);});
 	}
 }

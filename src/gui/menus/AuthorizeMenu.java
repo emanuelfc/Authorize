@@ -9,11 +9,10 @@ import javax.swing.JMenuItem;
 import burp.IContextMenuFactory;
 import burp.IContextMenuInvocation;
 import gui.menus.burpMenus.AddPrivateInformationMenu;
-import gui.menus.burpMenus.ImpersonatePrincipalMenu;
-import gui.menus.burpMenus.MakeRequestAsPrincipalMenu;
+import gui.menus.burpMenus.ImpersonateUserMenu;
+import gui.menus.burpMenus.MakeRequestAsUserMenu;
 import gui.menus.burpMenus.SessionMenu;
-import gui.menus.burpMenus.SendAsPrincipalMenu;
-import gui.menus.testsMenus.CreateTestFromRequestMenu;
+import gui.menus.burpMenus.SendAsUserMenu;
 
 public class AuthorizeMenu implements IContextMenuFactory
 {
@@ -25,12 +24,10 @@ public class AuthorizeMenu implements IContextMenuFactory
 		JMenu authorizeMenu = new JMenu(AUTHORIZE_MENU);
 		
 		authorizeMenu.add(new SessionMenu(invocation));
-		authorizeMenu.add(new MakeRequestAsPrincipalMenu(invocation));
-		authorizeMenu.add(new SendAsPrincipalMenu(invocation));
-		authorizeMenu.add(new ImpersonatePrincipalMenu(invocation));
+		authorizeMenu.add(new MakeRequestAsUserMenu(invocation));
+		authorizeMenu.add(new SendAsUserMenu(invocation));
+		authorizeMenu.add(new ImpersonateUserMenu(invocation));
 		authorizeMenu.add(new AddPrivateInformationMenu(invocation));
-		
-		authorizeMenu.add(new CreateTestFromRequestMenu(invocation));
 		
 		List<JMenuItem> menuItems = new LinkedList<JMenuItem>();
 		menuItems.add(authorizeMenu);

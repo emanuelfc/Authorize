@@ -5,8 +5,8 @@ import java.awt.event.MouseListener;
 
 import burp.BurpExtender;
 import burp.IHttpRequestResponse;
-import gui.tableModels.ProxyTableModel;
-import gui.tables.ProxyTable;
+import gui.tabs.proxyTab.ProxyTable;
+import gui.tabs.proxyTab.ProxyTableModel;
 
 public class AuthorizeMessageWindowPopup implements MouseListener
 {
@@ -26,9 +26,9 @@ public class AuthorizeMessageWindowPopup implements MouseListener
 			
 			int messageId = this.authTable.tableRowToMessageId(this.authTable.getSelectedRow());
 			
-			if(ProxyTableModel.isPrincipalColumn(this.authTable.getSelectedColumn()))
+			if(ProxyTableModel.isUserColumn(this.authTable.getSelectedColumn()))
 			{
-				messageInfo = ProxyTableModel.getPrincipalByColIndex(this.authTable.getSelectedColumn()).getMessage(messageId).getMessage();
+				messageInfo = ProxyTableModel.getUserByColIndex(this.authTable.getSelectedColumn()).getMessage(messageId).getMessage();
 			}
 			else
 			{

@@ -16,7 +16,7 @@ import utils.HttpRequestResponse;
 public class TestMessage extends Message
 {
 	private String testName;
-	private Map<String, PrincipalMessage> principalMessages;
+	private Map<String, UserMessage> userMessages;
 	
 	@JsonCreator
 	public TestMessage(@JsonProperty("testName") String testName, @JsonProperty("message") @JsonDeserialize(as = HttpRequestResponse.class) IHttpRequestResponse messageInfo, @JsonProperty("timestamp") Date timestamp)
@@ -24,7 +24,7 @@ public class TestMessage extends Message
 		super(messageInfo, timestamp);
 		
 		this.testName = testName;
-		this.principalMessages = new HashMap<String, PrincipalMessage>();
+		this.userMessages = new HashMap<String, UserMessage>();
 	}
 	
 	public TestMessage(String testName, IHttpRequestResponse messageInfo)
@@ -70,23 +70,23 @@ public class TestMessage extends Message
 		this.timestamp = newTimestamp;
 	}
 	
-	public PrincipalMessage getPrincipalMessage(String principalName)
+	public UserMessage getUserMessage(String username)
 	{
-		return this.principalMessages.get(principalName);
+		return this.userMessages.get(username);
 	}
 	
-	public void insertPrincipalTest(String principalName, PrincipalMessage principalMessage)
+	public void insertUserTest(String username, UserMessage userMessage)
 	{
-		this.principalMessages.put(principalName, principalMessage);
+		this.userMessages.put(username, userMessage);
 	}
 	
-	public void removePrincipalTest(String principalName)
+	public void removeUserTest(String username)
 	{
-		this.principalMessages.remove(principalName);
+		this.userMessages.remove(username);
 	}
 	
-	public Map<String, PrincipalMessage> getPrincipalMessages()
+	public Map<String, UserMessage> getUserMessages()
 	{
-		return this.principalMessages;
+		return this.userMessages;
 	}
 }
