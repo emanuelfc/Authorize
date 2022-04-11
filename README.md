@@ -1,5 +1,7 @@
 # Authorize
 
+![](https://github.com/emanuelfc/Authorize/blob/main/static/screenshots/proxy-tab.jpg)
+
 Authorize is a Burp Extension, built in Java, aimed at helping identifying Authorization and Access Control flaws, and any other where it may apply.
 
 It intercepts Burp requests, and performs an authenticated request - for each specified User (User) - and analyzes the server's response, identifying the Enforcement Status of the User's request (basically, if the response contains unauthorized information or an unauthorized action was successfully performed)
